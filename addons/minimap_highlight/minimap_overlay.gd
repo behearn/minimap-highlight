@@ -11,6 +11,7 @@ var code_edit: CodeEdit
 
 var _match_lines: Dictionary = {}
 var _breakpoint_lines: Dictionary = {}
+var _bookmark_lines: Dictionary = {}
 
 
 func _init() -> void:
@@ -27,7 +28,7 @@ func has_matches() -> bool:
 
 
 func has_marks() -> bool:
-	return has_matches() or not _breakpoint_lines.is_empty()
+	return has_matches() or not _breakpoint_lines.is_empty() or not _bookmark_lines.is_empty()
 
 
 func set_matches(lines: PackedInt32Array) -> void:
@@ -41,6 +42,13 @@ func set_breakpoints(lines: PackedInt32Array) -> void:
 	_breakpoint_lines.clear()
 	for line in lines:
 		_breakpoint_lines[line] = true
+	queue_redraw()
+
+
+func set_bookmarks(lines: PackedInt32Array) -> void:
+	if _same_line_set(_bookmark_lines, lines):
+		return
+	_replace_lines(_bookmark_lines, lines)
 	queue_redraw()
 
 
@@ -77,7 +85,9 @@ func _draw() -> void:
 	# Hit-testing subtracts the stylebox top margin. The minimap pixels themselves start at y = 0.
 	var top_margin := _current_stylebox().get_margin(SIDE_TOP)
 	var visible_matches := _visible_lines(_match_lines)
+	var visible_bookmarks := _visible_lines(_bookmark_lines)
 	var visible_breakpoints := _visible_lines(_breakpoint_lines)
+	var bookmark_color := _bookmark_color()
 	var breakpoint_color := _breakpoint_color()
 	var last_line := code_edit.get_line_count() - 1
 	var last_line_rows := 0
@@ -91,9 +101,11 @@ func _draw() -> void:
 			last_line_rows += 1
 			if last_line_rows > last_line_limit:
 				break
+		# A bookmark covers a search match. A breakpoint covers both.
 		if visible_matches.has(line):
 			draw_rect(Rect2(0, y, size.x, ROW_HEIGHT), BAR_COLOR)
-		# A line that is both a match and a breakpoint stays the breakpoint color.
+		if visible_bookmarks.has(line):
+			draw_rect(Rect2(0, y, size.x, ROW_HEIGHT), bookmark_color)
 		if visible_breakpoints.has(line):
 			draw_rect(Rect2(0, y, size.x, ROW_HEIGHT), breakpoint_color)
 		y += ROW_HEIGHT
@@ -103,6 +115,27 @@ func _breakpoint_color() -> Color:
 	var color := code_edit.get_theme_color(&"breakpoint_color")
 	color.a = 1.0
 	return color
+
+
+func _bookmark_color() -> Color:
+	var color := code_edit.get_theme_color(&"bookmark_color")
+	color.a = 1.0
+	return color
+
+
+func _same_line_set(current: Dictionary, lines: PackedInt32Array) -> bool:
+	if current.size() != lines.size():
+		return false
+	for line in lines:
+		if not current.has(line):
+			return false
+	return true
+
+
+func _replace_lines(current: Dictionary, lines: PackedInt32Array) -> void:
+	current.clear()
+	for line in lines:
+		current[line] = true
 
 
 func _visible_lines(source: Dictionary) -> Dictionary:

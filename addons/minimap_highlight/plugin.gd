@@ -182,6 +182,7 @@ func _attach_code_edit(code_edit: CodeEdit) -> void:
 	if _overlays.has(code_edit) and is_instance_valid(_overlays[code_edit]):
 		_apply_search_colors(code_edit)
 		_refresh_breakpoints(code_edit)
+		_refresh_bookmarks(code_edit)
 		return
 
 	var overlay: MinimapOverlay = MinimapOverlay.new()
@@ -215,6 +216,7 @@ func _attach_code_edit(code_edit: CodeEdit) -> void:
 		h_scroll.visibility_changed.connect(resized_callback)
 
 	_refresh_breakpoints(code_edit)
+	_refresh_bookmarks(code_edit)
 	overlay.fit_to_minimap()
 
 
@@ -281,6 +283,7 @@ func _refresh_matches() -> void:
 		else:
 			overlay.set_matches(PackedInt32Array())
 		_refresh_breakpoints(code_edit)
+		_refresh_bookmarks(code_edit)
 		overlay.fit_to_minimap()
 	_remember_search_state()
 	_refreshing_matches = false
@@ -356,6 +359,7 @@ func _reapply_search_colors() -> void:
 		_apply_search_colors(code_edit)
 		code_edit.queue_redraw()
 		_refresh_breakpoints(code_edit)
+		_refresh_bookmarks(code_edit)
 		var overlay := _overlays[code_edit] as MinimapOverlay
 		if overlay != null and is_instance_valid(overlay):
 			overlay.fit_to_minimap()
@@ -440,7 +444,17 @@ func _refresh_breakpoints(code_edit: CodeEdit) -> void:
 	overlay.set_breakpoints(code_edit.get_breakpointed_lines())
 
 
+func _refresh_bookmarks(code_edit: CodeEdit) -> void:
+	if not is_instance_valid(code_edit):
+		return
+	var overlay := _overlays.get(code_edit) as MinimapOverlay
+	if overlay == null or not is_instance_valid(overlay):
+		return
+	overlay.set_bookmarks(code_edit.get_bookmarked_lines())
+
+
 func _on_code_text_changed(code_edit: CodeEdit) -> void:
+	_refresh_bookmarks(code_edit)
 	if code_edit == _current_code_edit():
 		_refresh_matches()
 	else:
@@ -460,6 +474,8 @@ func _on_code_scrolled(_value: float, code_edit: CodeEdit) -> void:
 
 
 func _on_code_drawn(code_edit: CodeEdit) -> void:
+	# Bookmark toggles only redraw the CodeEdit.
+	_refresh_bookmarks(code_edit)
 	var overlay := _overlays.get(code_edit) as MinimapOverlay
 	if overlay != null and is_instance_valid(overlay) and overlay.has_marks():
 		overlay.queue_redraw()
